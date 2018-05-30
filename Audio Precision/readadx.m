@@ -2,7 +2,7 @@
 %  readadx.m
 %
 %  Created by Léa Strobino.
-%  Copyright 2015 hepia. All rights reserved.
+%  Copyright 2018 hepia. All rights reserved.
 %
 
 function adx = readadx(filename)
@@ -25,17 +25,17 @@ if h > 0
   end
   d = textscan([fgets(h) fgets(h) fgets(h)],'%s','Delimiter',',');
   d = reshape(d{1},[],3)';
-  k = find(~cellfun(@isempty,d(1,:)));
-  adx.Name = d(1,k);
-  adx.Tag = d(2,k);
-  adx.Unit = d(3,k);
+  v = find(~cellfun(@isempty,d(1,:)));
+  adx.Name = d(1,v);
+  adx.Tag = d(2,v);
+  adx.Unit = d(3,v);
   try
     d = textscan(h,'',...
       'CollectOutput',1,...
       'Delimiter',',',...
       'EmptyValue',0,...
       'ReturnOnError',0);
-    adx.Data = d{1}(:,k);
+    adx.Data = d{1}(:,v);
   catch e
     if strcmp(e.identifier,'MATLAB:textscan:EmptyFormatString')
       adx.Data = [];

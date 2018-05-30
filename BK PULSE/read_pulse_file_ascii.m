@@ -2,7 +2,7 @@
 %  read_pulse_file_ascii.m
 %
 %  Created by Léa Strobino
-%  Copyright 2017 hepia. All rights reserved.
+%  Copyright 2018 hepia. All rights reserved.
 %
 
 function m = read_pulse_file_ascii(filename,matfile)
@@ -29,7 +29,7 @@ if h > 0
       if strcmpi(property,'DateFormat')
         dateFormat = value;
       elseif strcmpi(property,'TimeFormat')
-        timeFormat = strrep(value,'mmm','SSS');
+        timeFormat = value;
       elseif ~strcmpi(property,'DecimalSymbol')
         try %#ok<TRYNC>
           m.(property) = value;
@@ -75,7 +75,7 @@ if h > 0
             if ~isempty(which('datetime'))
               m.Date = datetime(date,'InputFormat',[dateFormat ' ' strrep(timeFormat,'mmm','SSS')]);
             else
-              m.Date = datenum(date,[lower(dateFormat) ' ' regexprep(upper(timeFormat),'MMM|SSS','FFF')]);
+              m.Date = datenum(date,[lower(dateFormat) ' ' strrep(upper(timeFormat),'MMM','FFF')]);
             end
           catch e
             switch e.identifier
@@ -99,7 +99,7 @@ if h > 0
     end
   end
   fclose(h);
-  data = reshape(data,length(data)/m.XAxisSize,m.XAxisSize).';
+  data = reshape(data,[],m.XAxisSize).';
   m.XAxis = data(:,2);
   m.Data = data(:,3:end);
   if strcmpi(m.DataType,'Complex')

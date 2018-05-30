@@ -2,7 +2,7 @@
 %  InterfacePicoScope.m
 %
 %  Created by Léa Strobino.
-%  Copyright 2016 hepia. All rights reserved.
+%  Copyright 2017 hepia. All rights reserved.
 %
 
 classdef InterfacePicoScope < handle
@@ -23,6 +23,7 @@ classdef InterfacePicoScope < handle
       this.s.span = [500E-9 1E-6 2E-6 5E-6 10E-6 20E-6 50E-6 100E-6 200E-6 500E-6 1E-3 2E-3 5E-3 10E-3 20E-3 50E-3 100E-3 200E-3 500E-3 1 2 5 10 20 50 100 200 500];
       
       % Default data
+      this.d.bits = 8;
       this.d.mode = 0;
       this.d.path = UIComponent.getUserDirectory();
       this.d.size = [0 0];
@@ -35,16 +36,35 @@ classdef InterfacePicoScope < handle
         'Size',[1024 768],...
         'SizeChangedFcn',@this.sizeChangedFcn);
       
+      % Context menu
+      this.h.contextmenu = UIComponent.ContextMenu(...
+        'Parent',this.h.window);
+      o = UIComponent.Menu(...
+        'Label','Oversample',...
+        'Parent',this.h.contextmenu);
+      for i = 1:9
+        this.h.bits(i) = UIComponent.Menu(...
+          'Callback',@this.setBits,...
+          'Label',sprintf('%.0f   (%.1f bits)',2^(i-1),8+(i-1)/2),...
+          'Parent',o);
+      end
+      this.h.bits(1).Checked = 'on';
+      this.h.window.UIContextMenu = this.h.contextmenu;
+      
       % Axes
       this.h.axes_A = UIComponent.Axes(...
-        'Parent',this.h.window);
+        'Parent',this.h.window,...
+        'UIContextMenu',this.h.contextmenu);
       this.h.axes_B = UIComponent.Axes(...
-        'Parent',this.h.window);
+        'Parent',this.h.window,...
+        'UIContextMenu',this.h.contextmenu);
       
       % Traces, grid lines & labels
       c = sscanf(this.s.color,'%2X')/255;
-      this.h.trace_A = plot(this.h.axes_A,NaN,NaN,NaN,NaN,'v',NaN,NaN,'<','Color',c);
-      this.h.trace_B = plot(this.h.axes_B,NaN,NaN,NaN,NaN,'v',NaN,NaN,'<','Color',c);
+      this.h.trace_A = plot(this.h.axes_A,NaN,NaN,NaN,NaN,'v',NaN,NaN,'<',...
+        'Color',c,'UIContextMenu',this.h.contextmenu);
+      this.h.trace_B = plot(this.h.axes_B,NaN,NaN,NaN,NaN,'v',NaN,NaN,'<',...
+        'Color',c,'UIContextMenu',this.h.contextmenu);
       set([this.h.axes_A this.h.axes_B],...
         'FontSize',UIComponent.getFontSize()/1.1,...
         'XGrid','on','YGrid','on',...
@@ -66,7 +86,8 @@ classdef InterfacePicoScope < handle
       % Channel A
       this.h.A.pannel = UIComponent.Panel(...
         'Parent',this.h.window,...
-        'Title','Channel A');
+        'Title','Channel A',...
+        'UIContextMenu',this.h.contextmenu);
       UIComponent.Label(...
         'Parent',this.h.A.pannel,...
         'Position',[10 45 65 25],...
@@ -91,7 +112,8 @@ classdef InterfacePicoScope < handle
       % Channel B
       this.h.B.pannel = UIComponent.Panel(...
         'Parent',this.h.window,...
-        'Title','Channel B');
+        'Title','Channel B',...
+        'UIContextMenu',this.h.contextmenu);
       UIComponent.Label(...
         'Parent',this.h.B.pannel,...
         'Position',[10 45 65 25],...
@@ -115,7 +137,8 @@ classdef InterfacePicoScope < handle
       % Time
       this.h.time.pannel = UIComponent.Panel(...
         'Parent',this.h.window,...
-        'Title','Time');
+        'Title','Time',...
+        'UIContextMenu',this.h.contextmenu);
       UIComponent.Label(...
         'Parent',this.h.time.pannel,...
         'Position',[10 10 40 25],...
@@ -130,7 +153,8 @@ classdef InterfacePicoScope < handle
       % Trigger
       this.h.trigger.pannel = UIComponent.Panel(...
         'Parent',this.h.window,...
-        'Title','Trigger');
+        'Title','Trigger',...
+        'UIContextMenu',this.h.contextmenu);
       UIComponent.Label(...
         'Parent',this.h.trigger.pannel,...
         'Position',[10 115 60 25],...
@@ -174,7 +198,8 @@ classdef InterfacePicoScope < handle
       
       % Control
       this.h.control.pannel = UIComponent.Panel(...
-        'Parent',this.h.window);
+        'Parent',this.h.window,...
+        'UIContextMenu',this.h.contextmenu);
       this.h.control.start_single = UIComponent.Button(...
         'Callback',@this.start,...
         'Parent',this.h.control.pannel,...
@@ -271,6 +296,13 @@ classdef InterfacePicoScope < handle
       end
     end
     
+    function setBits(this,o,~)
+      set(this.h.bits,'Checked','off');
+      o.Checked = 'on';
+      this.d.bits = 8+(find(this.h.bits == o)-1)/2;
+      this.setChannels();
+    end
+    
     function setTime(this,~)
       this.d.span = this.s.span(this.h.time.span.Value);
       this.setChannels();
@@ -290,10 +322,11 @@ classdef InterfacePicoScope < handle
       this.h.axes_B.YLim = [-1 1]*this.s.range(this.h.B.range.Value);
       if this.d.span < 1
         if ~strcmp(this.d.info.ChannelA,'off') && ~strcmp(this.d.info.ChannelB,'off')
-          this.d.n = 8064;
+          n = 8064;
         else
-          this.d.n = 16256;
+          n = 16256;
         end
+        this.d.n = n/4^(this.d.bits-8);
         this.d.stream = 0;
         this.h.trigger.channel.Enable = 'on';
       else
@@ -375,13 +408,17 @@ classdef InterfacePicoScope < handle
     end
     
     function run(this)
-      if this.d.stream
-        this.h.pico.stop();
-        this.d.trace_A = [];
-        this.d.trace_B = [];
-        this.h.pico.runStreaming(this.d.n,this.d.dt);
-      else
-        this.h.pico.runBlock(this.d.n,this.d.dt);
+      try
+        if this.d.stream
+          this.h.pico.stop();
+          this.d.trace_A = [];
+          this.d.trace_B = [];
+          this.h.pico.runStreaming(this.d.n,this.d.dt);
+        else
+          this.h.pico.runBlock(this.d.n,this.d.dt,this.d.bits);
+        end
+      catch e
+        jerrordlg(e.message);
       end
     end
     
